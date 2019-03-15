@@ -11,31 +11,23 @@ let private apply parsersRunner parsers =
     List.collect (fun parserRunner -> parsers |> List.collect parserRunner) parsersRunner
 let private (<*>) = apply
 
-let private verboseParser : Parser =
-    fun commandInputs -> 
-        let isVerbose = commandInputs |> List.contains "-v"
-        if isVerbose 
-        then [Verbose]
-        else []
-
-let rec private extractArgumentWithValue argument parse = 
-    function
+let private flagParser token argument commandInputs =
+    match commandInputs |> List.contains token with
+    | true -> [argument]
+    | false -> []
+        
+let rec private extractArgumentWithValue token argument = function
     | head::value::_ 
-        when head = argument
-        -> [parse value]
-    | _::tail -> extractArgumentWithValue argument parse tail
+        when head = token
+        -> [argument value]
+    | _::tail -> extractArgumentWithValue token argument tail
     | [] -> []
 
-let private urlParser : Parser = 
-    fun commandInputs -> 
-        let extractUrl = extractArgumentWithValue "-u" Url
-        extractUrl commandInputs
+let private urlParser = extractArgumentWithValue "-u" Url
+let private portParser = extractArgumentWithValue "-p" (int >> Port)
+let private verboseParser = flagParser "-v" Verbose
 
-let private portParser : Parser = 
-    fun commandInputs -> 
-        let parsePort port = Port (int port)
-        let extractPort = extractArgumentWithValue "-p" parsePort
-        extractPort commandInputs
+let parsers = [urlParser; portParser; verboseParser]
 
 let private runParsers parsers commandInputs =
     let runParser (parser: Parser) = parser commandInputs
@@ -44,4 +36,4 @@ let private runParsers parsers commandInputs =
 let parseCommand (commandInput:string) : Argument list =
     commandInput.Split " " 
     |> Array.toList
-    |> runParsers [urlParser; portParser; verboseParser]
+    |> runParsers parsers
